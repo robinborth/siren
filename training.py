@@ -1,14 +1,14 @@
 '''Implements a generic training loop.
 '''
-
 import torch
+import torch.nn.functional as F
 import utils
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.autonotebook import tqdm
 import time
 import numpy as np
 import os
-import shutil
+
 
 
 def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_checkpoint, model_dir, loss_fn,
@@ -21,13 +21,6 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
     if use_lbfgs:
         optim = torch.optim.LBFGS(lr=lr, params=model.parameters(), max_iter=50000, max_eval=50000,
                                   history_size=50, line_search_fn='strong_wolfe')
-
-    if os.path.exists(model_dir):
-        val = input("The model directory %s exists. Overwrite? (y/n)"%model_dir)
-        if val == 'y':
-            shutil.rmtree(model_dir)
-
-    os.makedirs(model_dir)
 
     summaries_dir = os.path.join(model_dir, 'summaries')
     utils.cond_mkdir(summaries_dir)
@@ -53,21 +46,8 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
                 model_input = {key: value.cuda() for key, value in model_input.items()}
                 gt = {key: value.cuda() for key, value in gt.items()}
 
-                if double_precision:
-                    model_input = {key: value.double() for key, value in model_input.items()}
-                    gt = {key: value.double() for key, value in gt.items()}
-
-                if use_lbfgs:
-                    def closure():
-                        optim.zero_grad()
-                        model_output = model(model_input)
-                        losses = loss_fn(model_output, gt)
-                        train_loss = 0.
-                        for loss_name, loss in losses.items():
-                            train_loss += loss.mean() 
-                        train_loss.backward()
-                        return train_loss
-                    optim.step(closure)
+                # points = torch.rand_like(model_input["pcd_points"])
+                # points = points * (domain[1] - domain[0]) + domain[0]                
 
                 model_output = model(model_input)
                 losses = loss_fn(model_output, gt)
@@ -75,11 +55,6 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
                 train_loss = 0.
                 for loss_name, loss in losses.items():
                     single_loss = loss.mean()
-
-                    if loss_schedules is not None and loss_name in loss_schedules:
-                        writer.add_scalar(loss_name + "_weight", loss_schedules[loss_name](total_steps), total_steps)
-                        single_loss *= loss_schedules[loss_name](total_steps)
-
                     writer.add_scalar(loss_name, single_loss, total_steps)
                     train_loss += single_loss
 
@@ -91,17 +66,16 @@ def train(model, train_dataloader, epochs, lr, steps_til_summary, epochs_til_che
                                os.path.join(checkpoints_dir, 'model_current.pth'))
                     summary_fn(model, model_input, gt, model_output, writer, total_steps)
 
-                if not use_lbfgs:
-                    optim.zero_grad()
-                    train_loss.backward()
+                optim.zero_grad()
+                train_loss.backward()
 
-                    if clip_grad:
-                        if isinstance(clip_grad, bool):
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.)
-                        else:
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad)
+                if clip_grad:
+                    if isinstance(clip_grad, bool):
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.)
+                    else:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad)
 
-                    optim.step()
+                optim.step()
 
                 pbar.update(1)
 

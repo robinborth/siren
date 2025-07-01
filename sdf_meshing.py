@@ -19,8 +19,10 @@ def create_mesh(
     decoder.eval()
 
     # NOTE: the voxel_origin is actually the (bottom, left, down) corner, not the middle
-    voxel_origin = [-1, -1, -1]
-    voxel_size = 2.0 / (N - 1)
+    # voxel_origin = [-1, -1, -1]
+    # voxel_size = 2.0 / (N - 1)
+    voxel_origin = [-0.5, -0.5, -0.5]  # domain: -0.5, 0.5
+    voxel_size = 1.0 / (N - 1)
 
     overall_index = torch.arange(0, N ** 3, 1, out=torch.LongTensor())
     samples = torch.zeros(N ** 3, 4)
@@ -65,7 +67,7 @@ def create_mesh(
         sdf_values.data.cpu(),
         voxel_origin,
         voxel_size,
-        ply_filename + ".ply",
+        ply_filename,
         offset,
         scale,
     )
@@ -96,7 +98,7 @@ def convert_sdf_samples_to_ply(
 
     verts, faces, normals, values = np.zeros((0, 3)), np.zeros((0, 3)), np.zeros((0, 3)), np.zeros(0)
     try:
-        verts, faces, normals, values = skimage.measure.marching_cubes_lewiner(
+        verts, faces, normals, values = skimage.measure.marching_cubes(
             numpy_3d_sdf_tensor, level=0.0, spacing=[voxel_size] * 3
         )
     except:

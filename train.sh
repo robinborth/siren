@@ -1,0 +1,1 @@
+python /home/borth/siren/experiment_scripts/train_sdf.py --model_type=sine --point_cloud_path=/home/borth/neural-poisson/logs/ablation/2025-06-30/11-49-00_pde_solver_pointcloud/noise=0.0,samples=1000/mesh/pointcloud.ply --batch_size=1000 --experiment_name=frog_samples_1000
