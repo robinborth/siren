@@ -3,9 +3,9 @@ import glob
 import math
 import os
 
-import open3d as o3d
 import matplotlib.colors as colors
 import numpy as np
+import open3d as o3d
 import scipy.io.wavfile as wavfile
 import scipy.ndimage
 import scipy.special
@@ -14,7 +14,7 @@ import skimage.filters
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from torchvision.transforms import Resize, Compose, ToTensor, Normalize
+from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 
 
 def get_mgrid(sidelen, dim=2):
@@ -126,7 +126,6 @@ class InverseHelmholtz(Dataset):
         velocity="uniform",
         pretrain=False,
     ):
-
         super().__init__()
         torch.manual_seed(0)
 
@@ -180,7 +179,6 @@ class InverseHelmholtz(Dataset):
         return squared_slowness
 
     def __getitem__(self, idx):
-
         N_src_coords = self.source_coords.shape[0]  # number of sources
         N_rec_coords = self.rec_coords.shape[0]
         coords = torch.zeros(self.sidelength**2, 2).uniform_(-1.0, 1.0)
@@ -477,7 +475,63 @@ class PointCloud(Dataset):
         self.on_surface_points = self.coords.shape[0]
 
     def __len__(self):
-        return 1 
+        return 1
+
+    def __getitem__(self, idx):
+        point_cloud_size = self.coords.shape[0]
+
+        off_surface_samples = self.on_surface_points  # **2
+        total_samples = self.on_surface_points + off_surface_samples
+
+        # Random coords
+        rand_idcs = np.random.choice(point_cloud_size, size=self.on_surface_points)
+
+        on_surface_coords = self.coords[rand_idcs, :]
+        on_surface_normals = self.normals[rand_idcs, :]
+
+        off_surface_coords = np.random.uniform(-0.5, 0.5, size=(off_surface_samples, 3))
+        off_surface_normals = np.ones((off_surface_samples, 3)) * -1
+
+        sdf = np.zeros((total_samples, 1))  # on-surface = 0
+        sdf[self.on_surface_points :, :] = -1  # off-surface = -1
+
+        coords = np.concatenate((on_surface_coords, off_surface_coords), axis=0)
+        normals = np.concatenate((on_surface_normals, off_surface_normals), axis=0)
+
+        return {"coords": torch.from_numpy(coords).float()}, {
+            "sdf": torch.from_numpy(sdf).float(),
+            "normals": torch.from_numpy(normals).float(),
+        }
+
+
+class PointCloudOrg(Dataset):
+    def __init__(self, pointcloud_path, on_surface_points, keep_aspect_ratio=True):
+        super().__init__()
+
+        print("Loading point cloud")
+        pcd = o3d.io.read_point_cloud(pointcloud_path)
+        self.coords = np.asarray(pcd.points)
+        self.normals = np.asarray(pcd.normals)
+        print("Finished loading point cloud")
+
+        # Reshape point cloud such that it lies in bounding box of (-1, 1) (distorts geometry, but makes for high
+        # sample efficiency)
+        # coords -= np.mean(coords, axis=0, keepdims=True)
+        # if keep_aspect_ratio:
+        #     coord_max = np.amax(coords)
+        #     coord_min = np.amin(coords)
+        # else:
+        #     coord_max = np.amax(coords, axis=0, keepdims=True)
+        #     coord_min = np.amin(coords, axis=0, keepdims=True)
+
+        # self.coords = (coords - coord_min) / (coord_max - coord_min)
+        # self.coords -= 0.5
+        # self.coords *= 2.0
+
+        self.on_surface_points = on_surface_points
+
+    def __len__(self):
+        return self.coords.shape[0] // self.on_surface_points
 
     def __getitem__(self, idx):
         point_cloud_size = self.coords.shape[0]
@@ -646,7 +700,6 @@ class AudioFile(Dataset):
 
 class Implicit2DWrapper(torch.utils.data.Dataset):
     def __init__(self, dataset, sidelength=None, compute_diff=None):
-
         if isinstance(sidelength, int):
             sidelength = (sidelength, sidelength)
         self.sidelength = sidelength
@@ -724,7 +777,6 @@ class Implicit2DWrapper(torch.utils.data.Dataset):
 
 class Implicit3DWrapper(torch.utils.data.Dataset):
     def __init__(self, dataset, sidelength=None, sample_fraction=1.0):
-
         if isinstance(sidelength, int):
             sidelength = 3 * (sidelength,)
 

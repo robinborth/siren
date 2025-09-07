@@ -1,22 +1,19 @@
-"""Reproduces Paper Sec. 4.1, Supplement Sec. 3, reconstruction from gradient.
-"""
+"""Reproduces Sec. 4.2 in main paper and Sec. 4 in Supplement."""
 
 # Enable import from parent package
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import dataio
-import meta_modules
-import utils
-import training
+import configargparse
 import loss_functions
 import modules
-
-import configargparse
-
+import training
 from torch.utils.data import DataLoader
+
+import dataio
+import utils
 
 p = configargparse.ArgumentParser()
 p.add(
@@ -31,12 +28,12 @@ p.add_argument("--logging_root", type=str, default="./logs", help="root for logg
 p.add_argument(
     "--experiment_name",
     type=str,
-    default="debug",
+    required=True,
     help="Name of subdirectory in logging_root where summaries and checkpoints will be saved.",
 )
 
 # General training options
-p.add_argument("--batch_size", type=int, default=16384)
+p.add_argument("--batch_size", type=int, default=1400)
 p.add_argument("--lr", type=float, default=1e-4, help="learning rate. default=5e-5")
 p.add_argument(
     "--num_epochs", type=int, default=10000, help="Number of epochs to train for."
@@ -45,7 +42,7 @@ p.add_argument(
 p.add_argument(
     "--epochs_til_ckpt",
     type=int,
-    default=25,
+    default=1,
     help="Time interval in seconds until checkpoint is saved.",
 )
 p.add_argument(
@@ -56,16 +53,15 @@ p.add_argument(
 )
 
 p.add_argument(
-    "--dataset",
-    type=str,
-    choices=["camera", "bsd500"],
-    default="camera",
-    help="Dataset: choices=[camera,bsd500].",
-)
-p.add_argument(
     "--model_type",
     type=str,
     default="sine",
+    help='Options are "sine" (all sine activations) and "mixed" (first layer sine, other layers tanh)',
+)
+p.add_argument(
+    "--point_cloud_path",
+    type=str,
+    default="/home/sitzmann/data/point_cloud.xyz",
     help='Options are "sine" (all sine activations) and "mixed" (first layer sine, other layers tanh)',
 )
 
@@ -73,40 +69,23 @@ p.add_argument("--checkpoint_path", default=None, help="Checkpoint to trained mo
 opt = p.parse_args()
 
 
-# you can select the image your like in idx to sample
-img_dataset = dataio.BSD500ImageDataset(in_folder="data/BSD500", idx_to_sample=[0])
-coord_dataset = dataio.Implicit2DWrapper(
-    img_dataset, sidelength=256, compute_diff="gradients"
+sdf_dataset = dataio.PointCloudOrg(
+    opt.point_cloud_path, on_surface_points=opt.batch_size
 )
-
 dataloader = DataLoader(
-    coord_dataset,
-    shuffle=True,
-    batch_size=opt.batch_size,
-    pin_memory=True,
-    num_workers=0,
+    sdf_dataset, shuffle=True, batch_size=1, pin_memory=True, num_workers=0
 )
 
 # Define the model.
-if (
-    opt.model_type == "sine"
-    or opt.model_type == "relu"
-    or opt.model_type == "tanh"
-    or opt.model_type == "softplus"
-):
-    model = modules.SingleBVPNet(type=opt.model_type, mode="mlp", sidelength=(256, 256))
-elif opt.model_type == "rbf" or opt.model_type == "nerf":
-    model = modules.SingleBVPNet(
-        type="relu", mode=opt.model_type, sidelength=(256, 256)
-    )
+if opt.model_type == "nerf":
+    model = modules.SingleBVPNet(type="relu", mode="nerf", in_features=3)
 else:
-    raise NotImplementedError
+    model = modules.SingleBVPNet(type=opt.model_type, in_features=3)
 model.cuda()
 
-
-# Define the loss & summary functions
-loss_fn = loss_functions.gradients_mse
-summary_fn = utils.write_gradients_summary
+# Define the loss
+loss_fn = loss_functions.sdf
+summary_fn = utils.write_sdf_summary
 
 root_path = os.path.join(opt.logging_root, opt.experiment_name)
 
@@ -121,4 +100,5 @@ training.train(
     loss_fn=loss_fn,
     summary_fn=summary_fn,
     double_precision=False,
+    clip_grad=True,
 )

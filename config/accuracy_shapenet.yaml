@@ -1,0 +1,10 @@
+experiment_name: accuracy_shapenet
+data_dir: /home/borth/neural-poisson/data/ShapeNet
+cache_id: 212569dc67bd7379 
+batch_size: 50000
+epochs_til_ckpt: 1000
+steps_til_summary: 100
+resolution: 256
+lr: 1e-04
+num_epochs: 500
+n_test_size: 2

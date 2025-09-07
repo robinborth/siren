@@ -58,6 +58,6 @@ class SirenNetwork(nn.Module):
         self.net = Siren()
 
     def forward(self, model_input):
-        coords = model_input['coords'].clone().detach().requires_grad_(True)
+        coords = model_input["coords"].clone().detach().requires_grad_(True)
         output = self.net(coords)
-        return {'model_in': coords, 'model_out': output}
+        return {"model_in": coords, "model_out": output}

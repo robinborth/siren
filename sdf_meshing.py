@@ -1,31 +1,27 @@
-'''From the DeepSDF repository https://github.com/facebookresearch/DeepSDF
-'''
+"""From the DeepSDF repository https://github.com/facebookresearch/DeepSDF"""
 #!/usr/bin/env python3
 
 import logging
+import time
+
 import numpy as np
 import plyfile
 import skimage.measure
-import time
 import torch
 
 
-def create_mesh(
-    decoder, filename, N=256, max_batch=64 ** 3, offset=None, scale=None
-):
+def create_mesh(decoder, filename, N=256, max_batch=64**3, offset=None, scale=None):
     start = time.time()
     ply_filename = filename
 
     decoder.eval()
 
     # NOTE: the voxel_origin is actually the (bottom, left, down) corner, not the middle
-    # voxel_origin = [-1, -1, -1]
-    # voxel_size = 2.0 / (N - 1)
-    voxel_origin = [-0.5, -0.5, -0.5]  # domain: -0.5, 0.5
-    voxel_size = 1.0 / (N - 1)
+    voxel_origin = [-1, -1, -1]
+    voxel_size = 2.0 / (N - 1)
 
-    overall_index = torch.arange(0, N ** 3, 1, out=torch.LongTensor())
-    samples = torch.zeros(N ** 3, 4)
+    overall_index = torch.arange(0, N**3, 1, out=torch.LongTensor())
+    samples = torch.zeros(N**3, 4)
 
     # transform first 3 columns
     # to be the x, y, z index
@@ -39,7 +35,7 @@ def create_mesh(
     samples[:, 1] = (samples[:, 1] * voxel_size) + voxel_origin[1]
     samples[:, 2] = (samples[:, 2] * voxel_size) + voxel_origin[0]
 
-    num_samples = N ** 3
+    num_samples = N**3
 
     samples.requires_grad = False
 
@@ -51,7 +47,7 @@ def create_mesh(
 
         samples[head : min(head + max_batch, num_samples), 3] = (
             decoder(sample_subset)
-            .squeeze()#.squeeze(1)
+            .squeeze()  # .squeeze(1)
             .detach()
             .cpu()
         )
@@ -67,7 +63,7 @@ def create_mesh(
         sdf_values.data.cpu(),
         voxel_origin,
         voxel_size,
-        ply_filename,
+        ply_filename + ".ply",
         offset,
         scale,
     )
@@ -96,12 +92,18 @@ def convert_sdf_samples_to_ply(
 
     numpy_3d_sdf_tensor = pytorch_3d_sdf_tensor.numpy()
 
-    verts, faces, normals, values = np.zeros((0, 3)), np.zeros((0, 3)), np.zeros((0, 3)), np.zeros(0)
+    verts, faces, normals, values = (
+        np.zeros((0, 3)),
+        np.zeros((0, 3)),
+        np.zeros((0, 3)),
+        np.zeros(0),
+    )
     try:
         verts, faces, normals, values = skimage.measure.marching_cubes(
             numpy_3d_sdf_tensor, level=0.0, spacing=[voxel_size] * 3
         )
     except:
+        print("ERROR in MC!")
         pass
 
     # transform from voxel coordinates to camera coordinates

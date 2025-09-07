@@ -1,0 +1,10 @@
+experiment_name: accuracy_abc
+data_dir: /home/borth/neural-poisson/data/ABC
+cache_id: 58b99e857177dcff 
+batch_size: 50000
+epochs_til_ckpt: 1000
+steps_til_summary: 100
+resolution: 256
+lr: 1e-04
+num_epochs: 500
+n_test_size: 2

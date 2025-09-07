@@ -2,11 +2,42 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug: Eval",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate.py",
+            "args": [
+                "--config=accuracy_abc.yaml",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        },
+        {
             "name": "Debug: Train",
             "type": "debugpy",
             "request": "launch",
-            "program": "optimize.py",
-            "args": [],
+            "program": "train_sdf.py",
+            "args": [
+                "--model_type=sine",
+                "--experiment_name=debug",
+                "--point_cloud_path=/home/borth/neural-poisson/logs/result/2025-09-04/08-06-10_robustness_spsr/robustness_spsr_30_scans_000/eval/bench_4273dca1b0184024b722a94c1cd50b0/pointcloud.ply",
+                "--steps_til_summary=1",
+                "--lr=1e-08",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        },
+        {
+            "name": "Debug: Test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test_sdf.py",
+            "args": [
+                // "--checkpoint_path=/home/borth/siren/logs/debug/checkpoints/model_current.pth",
+                "--checkpoint_path=/home/borth/siren/logs/debug/checkpoints/model_epoch_0100.pth",
+                "--experiment_name=debug_rec",
+                "--resolution=256"
+            ],
             "console": "integratedTerminal",
             "justMyCode": false,
         },
