@@ -89,7 +89,8 @@ for idx in range(len(datamodule)):
         clip_grad=True,
     )
 
-    mesh_path = ROOT / "eval" / config["experiment_name"] / f"{scan_id}.ply"
+    import_dir = Path("/home/borth/neural-poisson/import/siren")
+    mesh_path = import_dir / config["experiment_name"] / f"{scan_id}.ply"
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
     grid = compute_grid(SDFDecoder(model=model), resolution=config["resolution"])
     mesh = marching_cubes_lewiner(grid)
